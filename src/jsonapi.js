@@ -9,7 +9,10 @@ import {
 } from './state-mutation';
 import { apiRequest, noop, jsonContentTypes } from './utils';
 import {
-  API_SET_ENDPOINT_HOST, API_SET_ENDPOINT_PATH, API_SET_ACCESS_TOKEN, API_WILL_CREATE, API_CREATED, API_CREATE_FAILED, API_WILL_READ, API_READ, API_READ_FAILED, API_WILL_UPDATE, API_UPDATED, API_UPDATE_FAILED, API_WILL_DELETE, API_DELETED, API_DELETE_FAILED
+  API_SET_ENDPOINT_HOST, API_SET_ENDPOINT_PATH, API_SET_ACCESS_TOKEN,
+  API_WILL_CREATE, API_CREATED, API_CREATE_FAILED, API_WILL_READ, API_READ,
+  API_READ_FAILED, API_WILL_WRITE, API_WRITE, API_WRITE_FAILED, API_WILL_UPDATE,
+  API_UPDATED, API_UPDATE_FAILED, API_WILL_DELETE, API_DELETED, API_DELETE_FAILED
 } from './constants';
 
 // Entity isInvalidating values
@@ -28,6 +31,10 @@ const apiCreateFailed = createAction(API_CREATE_FAILED);
 const apiWillRead = createAction(API_WILL_READ);
 const apiRead = createAction(API_READ);
 const apiReadFailed = createAction(API_READ_FAILED);
+
+const apiWillWrite = createAction(API_WILL_WRITE);
+const apiWrite = createAction(API_WRITE);
+const apiWriteFailed = createAction(API_WRITE_FAILED);
 
 const apiWillUpdate = createAction(API_WILL_UPDATE);
 const apiUpdated = createAction(API_UPDATED);
@@ -113,6 +120,43 @@ export const createEntity = (entity, {
         err.entity = entity;
 
         dispatch(apiCreateFailed(err));
+        onError(err);
+        reject(err);
+      });
+    });
+  };
+};
+
+export const writeEndpoint = (endpoint, {
+  onSuccess: onSuccess = noop,
+  onError: onError = noop,
+  payload: payload = {},
+} = {}) => {
+  if (onSuccess !== noop || onError !== noop) {
+    console.warn('onSuccess/onError callbacks are deprecated. Please use returned promise: https://github.com/dixieio/redux-json-api/issues/17');
+  }
+
+  return (dispatch, getState) => {
+    dispatch(apiWillWrite(endpoint));
+
+    const { host: apiHost, path: apiPath, accessToken } = getState().api.endpoint;
+    const apiEndpoint = `${apiHost}${apiPath}/${endpoint}`;
+
+    return new Promise((resolve, reject) => {
+      apiRequest(`${apiEndpoint}`, accessToken, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      })
+      .then(json => {
+        dispatch(apiWrite({ endpoint, ...json }));
+        onSuccess(json);
+        resolve(json);
+      })
+      .catch(error => {
+        const err = error;
+        err.endpoint = endpoint;
+
+        dispatch(apiWriteFailed(err));
         onError(err);
         reject(err);
       });
@@ -296,6 +340,25 @@ export const reducer = handleActions({
 
   [API_READ_FAILED]: (state) => {
     return Imm.fromJS(state).update('isReading', v => v - 1).toJS();
+  },
+
+  [API_WILL_WRITE]: (state) => {
+    return Imm.fromJS(state).update('isWritingpw', v => v + 1).toJS();
+  },
+
+  [API_WRITE]: (rawState, { payload }) => {
+    const state = Imm.fromJS(rawState);
+    const entities = Imm.fromJS(
+      Array.isArray(payload.data) ? payload.data : [payload.data]
+    ).concat(Imm.fromJS(payload.included || []));
+
+    return updateOrInsertEntitiesIntoState(state, entities)
+      .update('isWritingpw', v => v - 1)
+      .toJS();
+  },
+
+  [API_WRITE_FAILED]: (state) => {
+    return Imm.fromJS(state).update('isWritingpw', v => v - 1).toJS();
   },
 
   [API_WILL_UPDATE]: (rawState, { payload: entity }) => {

@@ -67,12 +67,6 @@ Pass a full resource object to `createEntity`. It will trigger a request to `POS
 
 Expects the API to return `200 OK` with the newly created resource object in response body.
 
-## Read endpoint
-
-`readEndpoint(endpoint, options)`
-
-Provide the endpoint from where to read. E.g. `users/1/roles`. The module will read each entity and map them from their type specified.
-
 ## Update entity
 
 `updateEntity(entity, options)`
@@ -88,6 +82,18 @@ Expects the API to return `200 OK` with the updated resource object in response 
 Accept a resource object and triggers a request to `DELETE /${entity.type}/${entity.id}`.
 
 Expects the API to return `204 No content`.
+
+## Read endpoint
+
+`readEndpoint(endpoint, options)`
+
+Provide the endpoint from where to read. E.g. `users/1/roles`. The module will read each entity and map them from their type specified.
+
+## Write endpoint
+
+`writeEndpoint(endpoint, options)`
+
+Provide the endpoint for which to write. E.g. `users/:notID/createFromPayload`.
 
 * * *
 
